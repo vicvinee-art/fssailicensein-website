@@ -1,0 +1,28 @@
+function doPost(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  let data = {};
+
+  try {
+    data = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return ContentService
+      .createTextOutput("Invalid JSON")
+      .setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  // ✅ Handle both cases
+  const serviceValue = data.service || "Request Callback";
+
+  sheet.appendRow([
+    new Date(),
+    data.name || "",
+    data.email || "",
+    data.phone || "",
+    serviceValue
+  ]);
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: "success" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
