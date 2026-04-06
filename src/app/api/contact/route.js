@@ -1,35 +1,46 @@
-import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
-    const { name, email, phone, service } = body;
+    const body = await req.json();
+    const { name, email, phone } = body;
 
-    // Basic validation
-    if (!name || !email || !phone || !service) {
-      return NextResponse.json(
-        { message: "All fields are required." },
-        { status: 400 }
-      );
-    }
+    const client = await clientPromise;
+    const db = client.db(process.env.DB_NAME);
 
-    // Simulate saving to database or sending email
-    console.log("New Consultation Request:", {
+    const requestCallback = "Request Callback";
+
+    await db.collection("contacts").insertOne({
       name,
       email,
       phone,
-      service,
+      requestCallback,
+      createdAt: new Date(), // ✅ kept as requested
     });
 
-    return NextResponse.json(
-      { message: "Consultation request submitted successfully!" },
-      { status: 200 }
-    );
+    await fetch(process.env.GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        requestCallback,
+        createdAt: new Date(), // ✅ also sending to sheet
+      }),
+    });
+
+    return new Response(JSON.stringify({ message: "Success" }), {
+      status: 200,
+    });
+
   } catch (error) {
-    console.error("API Error:", error);
-    return NextResponse.json(
-      { message: "Internal Server Error" },
-      { status: 500 }
-    );
+    console.error("ERROR:", error);
+
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
   }
 }
