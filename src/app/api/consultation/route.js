@@ -1,26 +1,46 @@
+import clientPromise from "@/lib/mongodb";
+
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { name, email, mobile } = body;
+    const { name, email, phone } = body;
 
-    if (!name || !email || !mobile) {
-      return Response.json(
-        { message: "All fields are required" },
-        { status: 400 }
-      );
-    }
+    const client = await clientPromise;
+    const db = client.db(process.env.DB_NAME);
 
-    console.log("Consultation Data:", body);
+    const requestCallback = "Request Callback";
 
-    return Response.json(
-      { message: "Consultation request received"},
-      { status: 200 }
-    );
+    await db.collection("contacts").insertOne({
+      name,
+      email,
+      phone,
+      requestCallback,
+      createdAt: new Date(),
+    });
+
+    await fetch(process.env.GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        requestCallback,
+        createdAt: new Date(), // ✅ also sending to sheet
+      }),
+    });
+
+    return new Response(JSON.stringify({ message: "Success" }), {
+      status: 200,
+    });
+
   } catch (error) {
-    return Response.json(
-      { message: "Server error" },
-      { status: 500 }
-    );
+    console.error("ERROR:", error);
+
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
   }
 }
-
